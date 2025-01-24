@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lottie/lottie.dart'; // Import Lottie
 import 'package:tetris/piece.dart';
 import 'package:tetris/pixel.dart';
 import 'package:tetris/value.dart';
@@ -21,17 +22,47 @@ class GameBoard extends StatefulWidget {
   State<GameBoard> createState() => _GameBoardState();
 }
 
-class _GameBoardState extends State<GameBoard> {
+class _GameBoardState extends State<GameBoard> with WidgetsBindingObserver {
   Piece currentPiece = Piece(type: Tetromino.L);
   int currentScore = 0;
   bool gameover = false;
   int highScore = 0;
+  bool showAnimation = true; // Controls the visibility of the Lottie animation
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); 
+    showAnimation = true; // Show animation on app launch
     _loadHighScore();
-    startGame();
+    _startLottieAnimation();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); 
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      
+      setState(() {
+        showAnimation = true;
+      });
+      _startLottieAnimation(); 
+    }
+  }
+
+
+  void _startLottieAnimation() {
+    Future.delayed(const Duration(seconds: 8), () {
+      setState(() {
+        showAnimation = false; 
+      });
+      startGame();
+    });
   }
 
   Future<void> _loadHighScore() async {
@@ -44,7 +75,8 @@ class _GameBoardState extends State<GameBoard> {
 
   void startGame() {
     currentPiece.initializePiece();
-    Duration frameRate = const Duration(milliseconds: 500); // Start with a slower speed
+    Duration frameRate =
+        const Duration(milliseconds: 500); 
     gameLoop(frameRate);
   }
 
@@ -53,26 +85,25 @@ class _GameBoardState extends State<GameBoard> {
       setState(() {
         clearLines();
         checkLanding();
-        if (gameover == true) {
+        if (gameover) {
           timer.cancel();
           _saveHighScore();
           showGameOverDialog();
         }
 
-        
         currentPiece.movePiece(Direction.down);
 
-        // Increase speed as the score increases
+      
         if (currentScore > 5 && currentScore <= 10) {
-          frameRate = const Duration(milliseconds: 400); // Slightly faster
+          frameRate = const Duration(milliseconds: 400); 
           timer.cancel();
-          gameLoop(frameRate); // Restart game loop with updated speed
+          gameLoop(frameRate); 
         } else if (currentScore > 10 && currentScore <= 15) {
-          frameRate = const Duration(milliseconds: 300); // Faster
+          frameRate = const Duration(milliseconds: 300); 
           timer.cancel();
           gameLoop(frameRate);
         } else if (currentScore > 15) {
-          frameRate = const Duration(milliseconds: 200); // Even faster
+          frameRate = const Duration(milliseconds: 200); 
           timer.cancel();
           gameLoop(frameRate);
         }
@@ -109,7 +140,8 @@ class _GameBoardState extends State<GameBoard> {
               resetGame();
               Navigator.pop(context);
             },
-            child: const Text('Play Again', style: TextStyle(color: Colors.blueAccent)),
+            child: const Text('Play Again',
+                style: TextStyle(color: Colors.blueAccent)),
           )
         ],
       ),
@@ -130,7 +162,11 @@ class _GameBoardState extends State<GameBoard> {
 
     createNewPiece();
 
-    startGame();
+    setState(() {
+      showAnimation = true;
+    });
+
+    _startLottieAnimation(); 
   }
 
   bool checkCollision(Direction direction) {
@@ -229,7 +265,7 @@ class _GameBoardState extends State<GameBoard> {
         }
         gameBoard[0] = List.generate(row, (index) => null);
 
-        currentScore += 10; // Increase score by 10 for each line cleared
+        currentScore += 10; 
       }
     }
   }
@@ -247,92 +283,99 @@ class _GameBoardState extends State<GameBoard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          const SizedBox(height: 30),
-          // Score and High Score
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 50.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: showAnimation
+          ? Center(
+              child: Lottie.asset(
+                  'images/animate.json'), 
+            )
+          : Column(
               children: [
-                Text(
-                  'Score: $currentScore',
-                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                const SizedBox(height: 30),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 50.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Score: $currentScore',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 20),
+                      ),
+                      Text(
+                        'High Score: $highScore',
+                        style: const TextStyle(
+                            color: Colors.orangeAccent, fontSize: 20),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(
-                  'High Score: $highScore',
-                  style: const TextStyle(color: Colors.orangeAccent, fontSize: 20),
+                const SizedBox(height: 10),
+                // Game Board
+                Expanded(
+                  child: GridView.builder(
+                    itemCount: rowLength * columnLength,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: rowLength),
+                    itemBuilder: (context, index) {
+                      int row = (index / rowLength).floor();
+                      int column = index % rowLength;
+                      if (currentPiece.position.contains(index)) {
+                        return Pixel(
+                          color: currentPiece.color,
+                          borderColor: Colors.white,
+                        );
+                      } else if (gameBoard[row][column] != null) {
+                        final Tetromino? tetrominoType = gameBoard[row][column];
+                        return Pixel(
+                          color: tetrominoColors[tetrominoType],
+                          borderColor: Colors.white,
+                        );
+                      } else {
+                        return Pixel(
+                          color: Colors.grey[900],
+                          borderColor: Colors.grey[700],
+                        );
+                      }
+                    },
+                  ),
+                ),
+                // Controls
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Left
+                      IconButton(
+                        onPressed: moveLeft,
+                        color: Colors.white,
+                        icon: const Icon(Icons.arrow_back_ios, size: 32),
+                      ),
+                      // Rotate
+                      IconButton(
+                        onPressed: rotatePiece,
+                        color: Colors.white,
+                        icon: const Icon(Icons.rotate_right, size: 32),
+                      ),
+                      // Right
+                      IconButton(
+                        onPressed: moveRight,
+                        color: Colors.white,
+                        icon: const Icon(Icons.arrow_forward_ios, size: 32),
+                      ),
+                      // Drop
+                      IconButton(
+                        onPressed: dropPiece,
+                        color: Colors.white,
+                        icon: const Icon(Icons.arrow_downward, size: 32),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 10),
-          // Game Board
-          Expanded(
-            child: GridView.builder(
-              itemCount: rowLength * columnLength,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: rowLength),
-              itemBuilder: (context, index) {
-                int row = (index / rowLength).floor();
-                int column = index % rowLength;
-                if (currentPiece.position.contains(index)) {
-                  return Pixel(
-                    color: currentPiece.color,
-                    borderColor: Colors.white,
-                  );
-                } else if (gameBoard[row][column] != null) {
-                  final Tetromino? tetrominoType = gameBoard[row][column];
-                  return Pixel(
-                    color: tetrominoColors[tetrominoType],
-                    borderColor: Colors.white,
-                  );
-                } else {
-                  return Pixel(
-                    color: Colors.grey[900],
-                    borderColor: Colors.grey[700],
-                  );
-                }
-              },
-            ),
-          ),
-          // Controls
-          Padding(
-            padding: const EdgeInsets.only(bottom: 50.0, top: 20.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Left
-                IconButton(
-                  onPressed: moveLeft,
-                  color: Colors.white,
-                  icon: const Icon(Icons.arrow_back_ios, size: 32),
-                ),
-                // Rotate
-                IconButton(
-                  onPressed: rotatePiece,
-                  color: Colors.white,
-                  icon: const Icon(Icons.rotate_right, size: 32),
-                ),
-                // Right
-                IconButton(
-                  onPressed: moveRight,
-                  color: Colors.white,
-                  icon: const Icon(Icons.arrow_forward_ios, size: 32),
-                ),
-                // Drop
-                IconButton(
-                  onPressed: dropPiece,
-                  color: Colors.white,
-                  icon: const Icon(Icons.arrow_downward, size: 32),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

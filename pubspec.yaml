@@ -44,6 +44,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
+  lottie: ^2.2.0
   
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -80,6 +81,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+  - images/animate.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:
